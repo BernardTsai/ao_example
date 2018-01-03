@@ -1,0 +1,672 @@
+tosca_definitions_version: TOSCA_dtag_profile_for_nfv_0_1_1
+
+description: VNF Template for the Clearwater tenant - 1.
+
+metadata:
+  template_name: Clearwater - TOSCA DTAG NFV TEMPLATE
+
+################################################################################
+
+topology_template:
+
+  node_templates:
+
+    ############################################################################
+    # Phase 1: Tenant
+    ############################################################################
+    /Clearwater:
+      type: tosca.dtag.nodes.VNF
+      properties:
+        name:        Clearwater
+        version:     V0.1.0
+        state:       started
+        description: Metaswitch Clearwater IMS core
+        vendor:      Metaswitch
+
+    /Clearwater/cloud:
+      type: tosca.dtag.nodes.Tenant
+      properties:
+        name:        clearwater
+        version:     V1.0.0
+        state:       started
+        description: Clearwater tenant in a cloud data center
+        vnf:         Clearwater
+        datacenter:  cloud
+        ipv6_prefix: '2001:0db8::' #todo
+        flavors:
+          - name:        m1.small
+            memory:      2048
+            disk:        10
+            vcpu:        1
+            ephemeral:   0
+            public:      True
+            swap:        0
+          - name:        m1.medium
+            memory:      4096
+            disk:        50
+            vcpu:        2
+            ephemeral:   0
+            public:      True
+            swap:        0
+
+    ############################################################################
+    # Phase 2: Networks
+    ############################################################################
+
+    /Clearwater/cloud/svc2:
+      type: tosca.dtag.nodes.Network
+      properties:
+        name:        svc2
+        version:     V1.0.0
+        state:       started
+        description: tenant management network
+        vnf:         Clearwater
+        tenant:      cloud
+        target:      '64512:1'
+        ipv4:
+          cidr:       10.235.28.240/29
+          gateway:    10.235.28.241
+          start:      10.235.28.243
+          end:        10.235.28.246
+
+    /Clearwater/cloud/svc1:
+      type: tosca.dtag.nodes.Network
+      properties:
+        name:        svc1
+        version:     V1.0.0
+        state:       started
+        description: Public Network e.g. Bono, DCM, ...
+        vnf:         Clearwater
+        tenant:      cloud
+        target:      '64512:42'
+        ipv4:
+          cidr:       83.131.6.248/29
+          gateway:    83.131.6.249
+          start:      83.131.6.251
+          end:        83.131.6.254
+
+    /Clearwater/cloud/oam:
+      type: tosca.dtag.nodes.Network
+      properties:
+        name:        oam
+        version:     V1.0.0
+        state:       started
+        description: OAM network (managment )
+        vnf:         Clearwater
+        tenant:      cloud
+        ipv4:
+          cidr:       192.168.0.1/24
+          gateway:    192.168.0.1
+          start:      192.168.0.16
+          end:        192.168.0.191
+
+    /Clearwater/cloud/m2m1:
+      type: tosca.dtag.nodes.Network
+      properties:
+        name:        m2m1
+        version:     V1.0.0
+        state:       started
+        description: M2M network
+        vnf:         Clearwater
+        tenant:      cloud
+        ipv4:
+          cidr:       192.168.1.1/24
+          gateway:    192.168.1.1
+          start:      192.168.1.16
+          end:        192.168.1.191
+
+    /Clearwater/cloud/m2m2:
+      type: tosca.dtag.nodes.Network
+      properties:
+        name:        m2m2
+        version:     V1.0.0
+        state:       started
+        description: M2M network for DB Sync
+        vnf:         Clearwater
+        tenant:      cloud
+        ipv4:
+          cidr:       192.168.2.1/24
+          gateway:    192.168.2.1
+          start:      192.168.2.16
+          end:        192.168.2.191
+
+    ############################################################################
+    # Phase 3: External communications partners
+    ############################################################################
+
+    # ----- ADMINISTRATORS -----------------------------------------------------
+    /administrators:
+      type: tosca.dtag.nodes.ExternalComponent
+      properties:
+        name:        administrators
+        version:     V1.0.0
+        state:       started
+        description: Tenant administrator
+        ipv4:
+          - 0.0.0.0/0
+        dependencies:
+          - {service: /Clearwater/cloud/jumphost/ssh,  network: /Clearwater/cloud/svc2}
+          - {service: /Clearwater/cloud/controlvm/ssh, network: /Clearwater/cloud/svc2}
+
+    # ----- CLIENTS ------------------------------------------------------------
+    /client:
+      type: tosca.dtag.nodes.ExternalComponent
+      properties:
+        name:        client
+        version:     V1.0.0
+        state:       started
+        description: sip client
+        ipv4:
+          - 0.0.0.0/0
+        dependencies:
+          - {service: /Clearwater/cloud/bono/sip_sig, network: /Clearwater/cloud/svc1}
+          - {service: /Clearwater/cloud/bono/rtp,     network: /Clearwater/cloud/svc1}
+          - {service: /Clearwater/cloud/bono/restund, network: /Clearwater/cloud/svc1}
+
+    # ----- WEB_USER -----------------------------------------------------------
+    /web_user:
+      type: tosca.dtag.nodes.ExternalComponent
+      properties:
+        name:        web_user
+        version:     V1.0.0
+        state:       started
+        description: ELLIS web-ui
+        ipv4:
+          - 0.0.0.0/0
+        dependencies:
+          - {service: /Clearwater/cloud/ellis/web_ui, network: /Clearwater/cloud/oam}
+
+    # ----- REPOSITORIES -------------------------------------------------------
+    /repositories:
+      type: tosca.dtag.nodes.ExternalComponent
+      properties:
+        name:        repositories
+        version:     V1.0.0
+        state:       started
+        description: Upstream repositories
+        ipv4:
+          - 0.0.0.0/0
+        services:
+          - name:    web
+            network: /Clearwater/cloud/svc1
+            ports:
+            - { protocol: tcp, min: 80,   max: 80   }
+            - { protocol: tcp, min: 443,  max: 443  }
+            - { protocol: tcp, min: 3128, max: 3128 }
+            - { protocol: tcp, min: 8080, max: 8080 }
+            - { protocol: tcp, min: 8443, max: 8443 }
+
+    ############################################################################
+    # Phase 3: Internal components
+    ############################################################################
+
+    # ----- JUMPHOST ------------------------------------------------------------
+    /Clearwater/cloud/jumphost:
+      type: tosca.dtag.nodes.InternalComponent
+      properties:
+        name:         jumphost
+        version:      V1.0.0
+        state:        started
+        description:  Jumphost server
+        vnf:          Clearwater
+        tenant:       cloud
+        placement:    MGMT
+        flavor:       m1.small
+        image:        ubuntu-16.04.1-x86_64
+        sizing:       {min: 1, max: 1, size: 1}
+        interfaces:
+          - network:    svc2
+          - network:    oam
+          - network:    m2m1
+        services:
+          - name:    ssh
+            network: svc2
+            ports:
+              - { protocol: tcp, min: 22, max: 22 }
+          - name:    ssh_oam
+            network: oam
+            ports:
+              - { protocol: tcp, min: 22, max: 22 }
+        dependencies:
+          - {service: /Clearwater/cloud/proxy/ssh,                 network: oam }
+          - {service: /Clearwater/cloud/sprout/ssh,                network: oam }
+          - {service: /Clearwater/cloud/bono/ssh,                  network: oam }
+          - {service: /Clearwater/cloud/dime/ssh,                  network: oam }
+          - {service: /Clearwater/cloud/homer/ssh,                 network: oam }
+          - {service: /Clearwater/cloud/vellum/ssh,                network: oam }
+          - {service: /Clearwater/cloud/ellis/ssh,                 network: oam }
+          - {service: /Clearwater/cloud/ellis/web_ui,              network: oam }
+          - {service: /Clearwater/cloud/controlvm/ssh_control_oam, network: oam }
+          - {service: /Clearwater/cloud/clearwaterdns/ssh,         network: oam }
+          - {service: /Clearwater/cloud/clearwaterdns/dns,         network: m2m1}
+
+    # ----- PROXY SERVER -------------------------------------------------------
+    /Clearwater/cloud/proxy:
+      type: tosca.dtag.nodes.InternalComponent
+      properties:
+        name:         proxy
+        version:      V1.0.0
+        state:        started
+        description:  Proxy to access the repositories in the internet
+        vnf:          Clearwater
+        tenant:       cloud
+        placement:    MGMT
+        flavor:       m1.small
+        image:        ubuntu-16.04.1-x86_64
+        sizing:       {min: 1, max: 1, size: 1}
+        interfaces:
+          - network:    oam
+          - network:    m2m1
+          - network:    svc1
+        services:
+          - name:    ssh
+            network: oam
+            ports:
+              - { protocol: tcp, min: 22, max: 22 }
+          - name:    web
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 3128, max: 3128 }
+        dependencies:
+          - {service: /repositories/web,          network: svc1}
+          - {service: /Clearwater/cloud/bono/snm, network: oam }
+
+    # ----- BONO SERVER ------------------------------------------------------
+    /Clearwater/cloud/bono:
+      type: tosca.dtag.nodes.InternalComponent
+      properties:
+        name:         bono
+        version:      V1.0.0
+        state:        started
+        description:  Edge Proxy (SBC)
+        vnf:          Clearwater
+        tenant:       cloud
+        placement:    EXT
+        flavor:       m1.small
+        image:        ubuntu-14.04.5-x86_64
+        sizing:       {min: 1, max: 1, size: 1}
+        interfaces:
+          - network:    oam
+          - network:    m2m1
+          - network:    svc1
+        services:
+          - name:    ssh
+            network: oam
+            ports:
+              - { protocol: tcp, min: 22, max: 22 }
+          - name:    sip_sig
+            network: svc1
+            ports:
+              - { protocol: tcp, min: 5060, max: 5062 }
+              - { protocol: udp, min: 5060, max: 5062 }
+          - name:    sip_all
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 5052, max: 5052 }
+          - name:    sip_sprout
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 5052, max: 5058 }
+              - { protocol: udp, min: 5052, max: 5058 }
+          - name:    etcd
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 2380, max: 2380 }
+              - { protocol: tcp, min: 4000, max: 4000 }
+          - name:    snmp
+            network: oam
+            ports:
+              - { protocol: udp, min: 161, max: 161 }
+          - name:    rtp
+            network: svc1
+            ports:
+              - { protocol: udp, min: 32768, max: 65535 }
+          - name:    restund
+            network: svc1
+            ports:
+              - { protocol: udp, min: 3478, max: 3478 }
+        dependencies:
+          - {service: /Clearwater/cloud/proxy/web,              network: m2m1}
+          - {service: /Clearwater/cloud/sprout/sip_bono,        network: m2m1}
+          - {service: /Clearwater/cloud/dime/rest_all,          network: m2m1}
+          - {service: /Clearwater/cloud/clearwaterdns/dns,      network: m2m1}
+          - {service: /Clearwater/cloud/ellis/etcd,             network: m2m1}
+          - {service: /Clearwater/cloud/sprout/etcd,            network: m2m1}
+          - {service: /Clearwater/cloud/homer/etcd,             network: m2m1}
+          - {service: /Clearwater/cloud/dime/etcd,              network: m2m1}
+          - {service: /Clearwater/cloud/vellum/etcd,            network: m2m1}
+          - {service: /Clearwater/cloud/vellum/sip_vellum_bono, network: m2m1}
+
+    # ----- SPROUT SERVER ------------------------------------------------------
+    /Clearwater/cloud/sprout:
+      type: tosca.dtag.nodes.InternalComponent
+      properties:
+        name:         sprout
+        version:      V1.0.0
+        state:        started
+        description:  Registration component
+        vnf:          Clearwater
+        tenant:       cloud
+        placement:    INT
+        flavor:       m1.small
+        image:        ubuntu-14.04.5-x86_64
+        sizing:       {min: 1, max: 1, size: 1}
+        interfaces:
+           - network:    oam
+           - network:    m2m1
+        services:
+          - name:    ssh
+            network: oam
+            ports:
+              - { protocol: tcp, min: 22, max: 22 }
+          - name:    sip_bono
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 5052, max: 5052 }
+              - { protocol: udp, min: 5054, max: 5054 }
+          - name:    vellum_dime
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 9888, max: 9888 }
+          - name:    etcd
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 2380, max: 2380 }
+              - { protocol: tcp, min: 4000, max: 4000 }
+          - name:    snmp
+            network: oam
+            ports:
+              - { protocol: udp, min: 161, max: 161 }
+        dependencies:
+          - {service: /Clearwater/cloud/proxy/web,                        network: m2m1}
+          - {service: /Clearwater/cloud/vellum/chronos_sprout_dime_homer, network: m2m1}
+          - {service: /Clearwater/cloud/dime/rest_all,                    network: m2m1}
+          - {service: /Clearwater/cloud/homer/rest_sprout_ellis,          network: m2m1}
+          - {service: /Clearwater/cloud/bono/sip_sprout,                  network: m2m1}
+          - {service: /Clearwater/cloud/clearwaterdns/dns,                network: m2m1}
+          - {service: /Clearwater/cloud/ellis/etcd,                       network: m2m1}
+          - {service: /Clearwater/cloud/bono/etcd,                        network: m2m1}
+          - {service: /Clearwater/cloud/homer/etcd,                       network: m2m1}
+          - {service: /Clearwater/cloud/dime/etcd,                        network: m2m1}
+          - {service: /Clearwater/cloud/vellum/etcd,                      network: m2m1}
+          - {service: /Clearwater/cloud/vellum/astaire_sprout_dime,       network: m2m1}
+
+    # ----- VELLUM SERVER ------------------------------------------------------
+    /Clearwater/cloud/vellum:
+      type: tosca.dtag.nodes.InternalComponent
+      properties:
+        name:         vellum
+        version:      V1.0.0
+        state:        started
+        description:  State store
+        vnf:          Clearwater
+        tenant:       cloud
+        placement:    INT
+        flavor:       m1.small
+        image:        ubuntu-14.04.5-x86_64
+        sizing:       {min: 1, max: 1, size: 1}
+        interfaces:
+          - network:    oam
+          - network:    m2m1
+          - network:    m2m2
+        services:
+          - name:    ssh
+            network: oam
+            ports:
+              - { protocol: tcp, min: 22, max: 22 }
+          - name:    chronos
+            network: m2m2
+            ports:
+              - { protocol: tcp, min: 7253, max: 7253 }
+          - name:    chronos_sprout_dime_homer
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 7253, max: 7253 }
+              - { protocol: tcp, min: 9160, max: 9160 }
+          - name:    memcached
+            network: m2m2
+            ports:
+              - { protocol: tcp, min: 11211, max: 11211 }
+          - name:    etcd
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 2380, max: 2380 }
+              - { protocol: tcp, min: 4000, max: 4000 }
+          - name:    cassandra
+            network: m2m2
+            ports:
+              - { protocol: tcp, min: 7000, max: 7000 }
+          - name:    snmp
+            network: oam
+            ports:
+              - { protocol: udp, min: 161, max: 161 }
+          - name:    astaire_sprout_dime
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 11311, max: 11311 }
+          - name:    sip_vellum_bono
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 5052, max: 5052 }
+        dependencies:
+          - {service: /Clearwater/cloud/proxy/web,          network: m2m1}
+          - {service: /Clearwater/cloud/vellum/chronos,     network: m2m2}
+          - {service: /Clearwater/cloud/vellum/memcached,   network: m2m2}
+          - {service: /Clearwater/cloud/vellum/cassandra,   network: m2m2}
+          - {service: /Clearwater/cloud/sprout/vellum_dime, network: m2m1}
+          - {service: /Clearwater/cloud/dime/rest_all,      network: m2m1}
+          - {service: /Clearwater/cloud/clearwaterdns/dns,  network: m2m1}
+          - {service: /Clearwater/cloud/ellis/etcd,         network: m2m1}
+          - {service: /Clearwater/cloud/sprout/etcd,        network: m2m1}
+          - {service: /Clearwater/cloud/homer/etcd,         network: m2m1}
+          - {service: /Clearwater/cloud/dime/etcd,          network: m2m1}
+          - {service: /Clearwater/cloud/bono/etcd,          network: m2m1}
+
+    # ----- DIME SERVER --------------------------------------------------------
+    /Clearwater/cloud/dime:
+      type: tosca.dtag.nodes.InternalComponent
+      properties:
+        name:         dime
+        version:      V1.0.0
+        state:        started
+        description:  Diameter gateway (Ralf & Homestead)
+        placement:    INT
+        flavor:       m1.small
+        image:        ubuntu-14.04.5-x86_64
+        sizing:       {min: 1, max: 1, size: 1}
+        interfaces:
+          - network:    oam
+          - network:    m2m1
+        services:
+          - name:    ssh
+            network: oam
+            ports:
+              - { protocol: tcp, min: 22, max: 22 }
+          - name:    rest_all
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 8888, max: 8888 }
+              - { protocol: tcp, min: 10888, max: 10888 }
+          - name:    rest_ellis
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 8889, max: 8889 }
+          - name:    etcd
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 2380, max: 2380 }
+              - { protocol: tcp, min: 4000, max: 4000 }
+        dependencies:
+          - {service: /Clearwater/cloud/proxy/web,                        network: m2m1}
+          - {service: /Clearwater/cloud/sprout/vellum_dime,               network: m2m1}
+          - {service: /Clearwater/cloud/vellum/chronos_sprout_dime_homer, network: m2m1}
+          - {service: /Clearwater/cloud/homer/rest_sprout_ellis,          network: m2m1}
+          - {service: /Clearwater/cloud/clearwaterdns/dns,                network: m2m1}
+          - {service: /Clearwater/cloud/ellis/etcd,                       network: m2m1}
+          - {service: /Clearwater/cloud/sprout/etcd,                      network: m2m1}
+          - {service: /Clearwater/cloud/homer/etcd,                       network: m2m1}
+          - {service: /Clearwater/cloud/bono/etcd,                        network: m2m1}
+          - {service: /Clearwater/cloud/vellum/etcd,                      network: m2m1}
+          - {service: /Clearwater/cloud/vellum/astaire_sprout_dime,       network: m2m1}
+
+    # ----- HOMER SERVER --------------------------------------------------------
+    /Clearwater/cloud/homer:
+      type: tosca.dtag.nodes.InternalComponent
+      properties:
+        name:         homer
+        version:      V1.0.0
+        state:        started
+        description:  XDMS
+        vnf:          Clearwater
+        tenant:       cloud
+        placement:    INT
+        flavor:       m1.small
+        image:        ubuntu-14.04.5-x86_64
+        sizing:       {min: 1, max: 1, size: 1}
+        interfaces:
+          - network:    oam
+          - network:    m2m1
+        services:
+          - name:    ssh
+            network: oam
+            ports:
+              - { protocol: tcp, min: 22, max: 22 }
+          - name:    rest_sprout_ellis
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 7888, max: 7888 }
+          - name:    etcd
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 2380, max: 2380 }
+              - { protocol: tcp, min: 4000, max: 4000 }
+        dependencies:
+          - {service: /Clearwater/cloud/proxy/web,                        network: m2m1}
+          - {service: /Clearwater/cloud/vellum/chronos_sprout_dime_homer, network: m2m1}
+          - {service: /Clearwater/cloud/clearwaterdns/dns,                network: m2m1}
+          - {service: /Clearwater/cloud/ellis/etcd,                       network: m2m1}
+          - {service: /Clearwater/cloud/sprout/etcd,                      network: m2m1}
+          - {service: /Clearwater/cloud/bono/etcd,                        network: m2m1}
+          - {service: /Clearwater/cloud/dime/etcd,                        network: m2m1}
+          - {service: /Clearwater/cloud/vellum/etcd,                      network: m2m1}
+
+    # ----- ELLIS SERVER -------------------------------------------------------
+    /Clearwater/cloud/ellis:
+      type: tosca.dtag.nodes.InternalComponent
+      properties:
+        name:         ellis
+        version:      V1.0.0
+        state:        started
+        description:  test and provisioning
+        vnf:          Clearwater
+        tenant:       cloud
+        placement:    INT
+        flavor:       m1.small
+        image:        ubuntu-14.04.5-x86_64
+        sizing:       {min: 1, max: 1, size: 1}
+        interfaces:
+          - network:    oam
+          - network:    m2m1
+        services:
+          - name:    ssh
+            network: oam
+            ports:
+              - { protocol: tcp, min: 22, max: 22 }
+          - name:    web_ui
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 80, max: 80 }
+              - { protocol: tcp, min: 443, max: 443 }
+          - name:    etcd
+            network: m2m1
+            ports:
+              - { protocol: tcp, min: 2380, max: 2380 }
+              - { protocol: tcp, min: 4000, max: 4000 }
+          - name:    web_ui
+            network: oam
+            ports:
+              - { protocol: tcp, min: 80, max: 80 }
+              - { protocol: tcp, min: 443, max: 443 }
+        dependencies:
+          - {service: /Clearwater/cloud/proxy/web,               network: m2m1}
+          - {service: /Clearwater/cloud/dime/rest_ellis,         network: m2m1}
+          - {service: /Clearwater/cloud/homer/rest_sprout_ellis, network: m2m1}
+          - {service: /Clearwater/cloud/clearwaterdns/dns,       network: m2m1}
+          - {service: /Clearwater/cloud/bono/etcd,               network: m2m1}
+          - {service: /Clearwater/cloud/sprout/etcd,             network: m2m1}
+          - {service: /Clearwater/cloud/homer/etcd,              network: m2m1}
+          - {service: /Clearwater/cloud/dime/etcd,               network: m2m1}
+          - {service: /Clearwater/cloud/vellum/etcd,             network: m2m1}
+
+    # ----- BIND SERVER --------------------------------------------------------
+    /Clearwater/cloud/clearwaterdns:
+      type: tosca.dtag.nodes.InternalComponent
+      properties:
+        name:         clearwaterdns
+        version:      V1.0.0
+        state:        started
+        description:  DNS for internal communication among clearwater vms
+        vnf:          Clearwater
+        tenant:       cloud
+        placement:    MGMT
+        flavor:       m1.small
+        image:        ubuntu-14.04.5-x86_64
+        sizing:       {min: 1, max: 1, size: 1}
+        interfaces:
+          - network:    oam
+          - network:    m2m1
+        services:
+          - name:    ssh
+            network: oam
+            ports:
+              - { protocol: tcp, min: 22, max: 22 }
+          - name:    dns
+            network: m2m1
+            ports:
+              - { protocol: udp, min: 53, max: 53 }
+          - name:    dns-oam
+            network: oam
+            ports:
+              - { protocol: udp, min: 53, max: 53 }
+        dependencies:
+          - {service: /Clearwater/cloud/proxy/web,               network: m2m1}
+
+    # ----- CONTROL VM ---------------------------------------------------------
+    /Clearwater/cloud/controlvm:
+      type: tosca.dtag.nodes.InternalComponent
+      properties:
+        name:         controlvm
+        version:      V1.0.0
+        state:        started
+        description:  Ansible runner
+        vnf:          Clearwater
+        tenant:       cloud
+        placement:    MGMT
+        flavor:       m1.small
+        image:        ubuntu-14.04.5-x86_64
+        sizing:       {min: 1, max: 1, size: 1}
+        interfaces:
+          - network:    svc2
+          - network:    oam
+          - network:    m2m1
+        services:
+          - name:    ssh_control
+            network: svc2
+            ports:
+              - { protocol: tcp, min: 22, max: 22 }
+          - name:    ssh_control_oam
+            network: oam
+            ports:
+              - { protocol: tcp, min: 22, max: 22 }
+        dependencies:
+          - {service: /Clearwater/cloud/proxy/ssh,                 network: oam }
+          - {service: /Clearwater/cloud/sprout/ssh,                network: oam }
+          - {service: /Clearwater/cloud/bono/ssh,                  network: oam }
+          - {service: /Clearwater/cloud/dime/ssh,                  network: oam }
+          - {service: /Clearwater/cloud/homer/ssh,                 network: oam }
+          - {service: /Clearwater/cloud/vellum/ssh,                network: oam }
+          - {service: /Clearwater/cloud/ellis/ssh,                 network: oam }
+          - {service: /Clearwater/cloud/jumphost/ssh,              network: oam }
+          - {service: /Clearwater/cloud/clearwaterdns/ssh,         network: oam }
+          - {service: /Clearwater/cloud/clearwaterdns/dns,         network: oam }
+          - {service: /Clearwater/cloud/ellis/web_ui,              network: oam }
