@@ -3,7 +3,7 @@ tenant:
   name:        "Clearwater_cloud"
   description: "Clearwater tenant in a cloud data center"
   password:    "secret"
-  cloud:       "SOL-B"
+  cloud:       "cloud"
 
 security_groups:
 - Clearwater_cloud_jumphost_svc2
