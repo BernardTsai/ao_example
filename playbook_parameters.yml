@@ -1,4 +1,7 @@
 ---
+vnf:
+  name:        "Clearwater"
+
 tenant:
   name:        "Clearwater_cloud"
   description: "Clearwater tenant in a cloud data center"
