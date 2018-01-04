@@ -22,6 +22,7 @@ topology_template:
         state:       started
         description: Metaswitch Clearwater IMS core
         vendor:      Metaswitch
+        public_key:  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCpMQ9SJ+WZoHox5nCS45GdXC19BXoZmezSd6OBWaJVibPdqSEVC0PPVjQ/EnND1y5rzZrxP4wmr9SEGTKrlHIcAi8OTrmLOX3Y9oCMAXmGN05CSYNvj+Buimk1tm92l2dlyrKC2+eZPiZd2qUfixEZ+GrKPfZIotItbyPzHZ8jCoKE+90+sF8JJQBoaGR0RqhR14bIavy6xHfs6RjQCJC+0Y/J1OFUFuaEzPmyj3kKA+nc2cExzq4twNU+1Qn/aTFE0JjBVtQew4iOFPrBNYVD7B5KJGnVDh9F/ToQUyus03Hn3gUQkUmkqesDpDgyYwSfXn8H9Oe8oc5wD5A8mff2zhUIebKgVZUb/aVwU6Lnn+2gG+qRNalqCyUiCVgdYd4IFEq6IVBk8AtxT7RUAqU6g0myP35CnxbYKeGnv76BMXizF2qM7zSahhEo+Xh2Hd6xcf3MGJ2V1X/OzGMZoVvZi9kLDIPq1VWbt5JimQ378m9BncRDy6P0foqlmG6eLJgyRoc7uwKSRLDz4Q8czFWLlgNVrsDTSfnCpfem4EUAk1vFb8m+Ksh/20AI1PPyRHvJ4/vJ71O7MraN3xcFEHIknbWx7drm1S1Zs0wwv7FYXIzex6Kg0G90khZAWMIMG8VBihPadPK32fcYiKXWQalEQCEzcn74wwf2J8RGgxV5KQ== Example SSH Keypair"
 
     /Clearwater/cloud:
       type: tosca.dtag.nodes.Tenant
