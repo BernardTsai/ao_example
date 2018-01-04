@@ -2313,6 +2313,7 @@ nodes:
       - port-name: Clearwater_cloud_controlvm_0_oam
       - port-name: Clearwater_cloud_controlvm_0_m2m1
 
-volumes:
+
+volumes: []
 
 
